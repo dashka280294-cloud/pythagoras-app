@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Пифагор + Гороскоп — Мобильное приложение</title>
+<meta name="description" content="Мобильный PWA — квадрат Пифагора + ежедневный гороскоп, учётная запись, оповещения и рабочие мантры."/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>★</text></svg>">
+<style>
+:root{--bg:#0f1724;--card:#0b1220;--accent:#ffb86b;--muted:#9aa4b2;--glass:rgba(255,255,255,0.03)}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,Roboto,Arial;background:linear-gradient(180deg,#071021 0%,#081426 60%);color:#e6eef8}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:sticky;top:0;background:linear-gradient(180deg,rgba(8,12,20,0.6),transparent);backdrop-filter:blur(6px);z-index:30}
+h1{font-size:18px;margin:0}
+.app{max-width:980px;margin:0 auto;padding:12px}
+.panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:14px;padding:12px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.03)}
+.label{font-weight:700;margin-bottom:8px;font-size:13px}
+.row{display:flex;gap:8px;align-items:center}
+.input,select,button{font-size:15px;padding:10px;border-radius:10px;border:none}
+.input,select{background:rgba(255,255,255,0.02);color:inherit;width:100%;border:1px solid rgba(255,255,255,0.03)}
+.btn{background:linear-gradient(90deg,var(--accent),#ff7aa2);color:#081426;font-weight:800;border-radius:12px;padding:10px 12px;border:none}
+.btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--accent)}
+.small{font-size:13px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.cell{background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.02));padding:10px;border-radius:10px;min-height:70px;display:flex;align-items:center;justify-content:center;flex-direction:column;border:1px solid rgba(255,255,255,0.02)}
+.cell .num{font-size:22px;font-weight:800}
+.cell .digit{font-size:12px;color:var(--muted);margin-top:6px}
+.highlight{background:linear-gradient(180deg,rgba(255,200,100,0.06),rgba(255,200,100,0.03));border-color:rgba(255,200,100,0.18)}
+.notice{background:#081428;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+.footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
+.toggle{display:inline-flex;align-items:center;gap:8px}
+@media(max-width:520px){
+  header{padding:10px}
+  .panel{padding:10px}
+  .cell{min-height:64px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Пифагор + Гороскоп</h1><div class="small">Мобильное приложение — офлайн + онлайн гороскоп</div></div>
+  <div style="text-align:right"><div class="small">v1.0</div></div>
+</header>
+
+<div class="app">
+  <!-- Account panel -->
+  <div class="panel" id="accountPanel">
+    <div class="label">Учётная запись</div>
+    <div id="authBox">
+      <input id="username" class="input" placeholder="Имя пользователя" autocomplete="username"/>
+      <input id="password" class="input" placeholder="Пароль (локально)" type="password" style="margin-top:8px"/>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="btnSignup" class="btn">Зарегистрироваться</button>
+        <button id="btnLogin" class="btn secondary">Войти</button>
+      </div>
+      <div class="small" style="margin-top:8px">Учётные данные хранятся локально в браузере (localStorage). Для реального приложения нужен бекенд — я могу добавить.</div>
+    </div>
+    <div id="profileBox" style="display:none">
+      <div class="small">Вы вошли как <strong id="profileName"></strong></div>
+      <div style="margin-top:8px">
+        <label class="small">Знак зодиака</label>
+        <select id="zodiac" class="input"></select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="btnSaveProfile" class="btn">Сохранить профиль</button>
+        <button id="btnLogout" class="btn secondary">Выйти</button>
+      </div>
+      <div style="margin-top:8px" class="small">Разрешение на уведомления: <span id="notifStatus">неизвестно</span> <button id="btnNotif" class="btn secondary" style="margin-left:8px">Включить</button></div>
+    </div>
+  </div>
+
+  <!-- Horoscope panel -->
+  <div class="panel" id="horoscopePanel">
+    <div class="label">Гороскоп на сегодня</div>
+    <div class="row" style="gap:8px">
+      <select id="zodiacSelect" class="input"></select>
+      <button id="btnFetch" class="btn">Получить</button>
+    </div>
+    <div id="horoscopeResult" style="margin-top:12px"></div>
+    <div id="astroWarning" class="notice" style="margin-top:10px;display:none"></div>
+  </div>
+
+  <!-- Pythagoras square -->
+  <div class="panel" id="pythaPanel">
+    <div class="label">Квадрат Пифагора (по дате)</div>
+    <input id="dateInput" class="input" type="date"/>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="btnGenerate" class="btn">Сгенерировать</button>
+      <button id="btnToday" class="btn secondary">Сегодня</button>
+    </div>
+    <div id="grid" class="grid" style="margin-top:12px"></div>
+    <div id="explain" style="margin-top:10px" class="small"></div>
+  </div>
+
+  <!-- Mantras & Recommendations -->
+  <div class="panel" id="mantrasPanel">
+    <div class="label">Рекомендации и рабочие мантры</div>
+    <div class="small">Выбери тему:</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn mantraBtn" data-topic="success">Успех</button>
+      <button class="btn secondary mantraBtn" data-topic="love">Любовь</button>
+      <button class="btn secondary mantraBtn" data-topic="wealth">Богатство</button>
+    </div>
+    <div id="mantraResult" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <div class="small">Источники для ежедневного гороскопа: Aztro — бесплатный API для ежедневных гороскопов (поддерживает запросы без авторизации). Я использую его в этой версии, но можно подключить коммерческие сервисы для более глубоких прогнозов. Источники: документация Aztro. (см. встроенные ссылки в описании.)</div>
+  </div>
+
+  <div class="footer small">Это демо-приложение. Для публикации в App Store / Google Play требуется серверная часть, защита учётных данных и согласование с политиками.</div>
+</div>
+
+<script>
+// Zodiac signs list
+const ZODIAC = ['aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces'];
+const ZODIAC_RU = {
+  aries:'Овен',taurus:'Телец',gemini:'Близнецы',cancer:'Рак',leo:'Лев',virgo:'Дева',libra:'Весы',scorpio:'Скорпион',sagittarius:'Стрелец',capricorn:'Козерог',aquarius:'Водолей',pisces:'Рыбы'
+};
+
+// populate selects
+function populateZodiac(selectId){
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '';
+  ZODIAC.forEach(z => {
+    const opt = document.createElement('option');
+    opt.value = z;
+    opt.textContent = ZODIAC_RU[z];
+    sel.appendChild(opt);
+  });
+}
+populateZodiac('zodiacSelect');
+populateZodiac('zodiac');
+
+// local account functions
+function saveUser(username, password){
+  const users = JSON.parse(localStorage.getItem('users')||'{}');
+  users[username] = {password};
+  localStorage.setItem('users', JSON.stringify(users));
+}
+function checkUser(username,password){
+  const users = JSON.parse(localStorage.getItem('users')||'{}');
+  return users[username] && users[username].password === password;
+}
+function setCurrentUser(username){
+  localStorage.setItem('currentUser', username);
+  renderProfile();
+}
+function logout(){
+  localStorage.removeItem('currentUser');
+  renderProfile();
+}
+function renderProfile(){
+  const cur = localStorage.getItem('currentUser');
+  const authBox = document.getElementById('authBox');
+  const profileBox = document.getElementById('profileBox');
+  if(cur){
+    authBox.style.display = 'none';
+    profileBox.style.display = 'block';
+    document.getElementById('profileName').textContent = cur;
+    const profile = JSON.parse(localStorage.getItem('profile_'+cur) || '{}');
+    document.getElementById('zodiac').value = profile.zodiac || localStorage.getItem('preferredZodiac') || 'aries';
+    updateNotifStatus();
+  } else {
+    authBox.style.display = 'block';
+    profileBox.style.display = 'none';
+  }
+}
+renderProfile();
+
+// auth handlers
+document.getElementById('btnSignup').addEventListener('click', ()=>{
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  if(!u || !p){ alert('Введите имя пользователя и пароль'); return; }
+  saveUser(u,p);
+  setCurrentUser(u);
+  alert('Зарегистрировано локально: ' + u);
+});
+document.getElementById('btnLogin').addEventListener('click', ()=>{
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  if(checkUser(u,p)){ setCurrentUser(u); alert('Вход выполнен: ' + u); }
+  else alert('Неверные учётные данные');
+});
+document.getElementById('btnLogout').addEventListener('click', ()=>{ logout(); alert('Вы вышли'); });
+document.getElementById('btnSaveProfile').addEventListener('click', ()=>{
+  const cur = localStorage.getItem('currentUser');
+  if(!cur){ alert('Войдите'); return; }
+  const profile = { zodiac: document.getElementById('zodiac').value };
+  localStorage.setItem('profile_' + cur, JSON.stringify(profile));
+  localStorage.setItem('preferredZodiac', profile.zodiac);
+  alert('Профиль сохранён');
+});
+
+// Notifications
+async function updateNotifStatus(){
+  const status = Notification.permission;
+  document.getElementById('notifStatus').textContent = status;
+}
+document.getElementById('btnNotif').addEventListener('click', async ()=>{
+  try{
+    const perm = await Notification.requestPermission();
+    updateNotifStatus();
+    if(perm === 'granted') alert('Уведомления разрешены.');
+  }catch(e){ console.warn(e); }
+});
+
+// Horoscope fetch (Aztro)
+async function fetchHoroscope(sign){
+  const url = 'https://aztro.sameerkumar.website?sign=' + encodeURIComponent(sign) + '&day=today';
+  try{
+    const res = await fetch(url, {method:'POST'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    return data;
+  }catch(e){
+    console.error('fetchHoroscope error', e);
+    return null;
+  }
+}
+
+// Render horoscope
+document.getElementById('btnFetch').addEventListener('click', async ()=>{
+  const sign = document.getElementById('zodiacSelect').value;
+  document.getElementById('horoscopeResult').innerHTML = '<div class="small">Загрузка...</div>';
+  const data = await fetchHoroscope(sign);
+  if(!data){ document.getElementById('horoscopeResult').innerHTML = '<div class="small">Не удалось получить гороскоп — попробуйте позже.</div>'; return; }
+  renderHoroscope(sign, data);
+  if(Notification.permission === 'granted'){
+    new Notification('Гороскоп: ' + ZODIAC_RU[sign], {body: data.description.slice(0,120) + '…'});
+  }
+});
+
+function renderHoroscope(sign, data){
+  const box = document.getElementById('horoscopeResult');
+  box.innerHTML = `<div style="font-weight:800">${ZODIAC_RU[sign]} — <span class="small">${data.date_range || ''}</span></div>
+  <div style="margin-top:8px">${escapeHtml(data.description)}</div>
+  <div style="margin-top:10px" class="small">Настроение: ${data.mood || '-'} · Совместимость: ${data.compatibility || '-'} · Счастливое число: ${data.lucky_number || '-'}</div>`;
+  const warnWords = ['avoid','caution','careful','challenge','conflict','stress','difficult','problems','avoidance','trouble','вниман','остерег','опасн','конфликт','трудн','избегай'];
+  const descLower = (data.description || '').toLowerCase();
+  const found = warnWords.some(w => descLower.includes(w));
+  const warnBox = document.getElementById('astroWarning');
+  if(found){
+    warnBox.style.display = 'block';
+    warnBox.innerHTML = `<strong>Астрологическое предупреждение:</strong> сегодня проявляйте осторожность. Подробности: ${escapeHtml(data.description)}`;
+  } else {
+    warnBox.style.display = 'none';
+  }
+}
+
+// Simple Pythagoras square
+function digitsFromDate(val){
+  if(!val) return '';
+  const [yy,mm,dd] = val.split('-');
+  if(!yy) return '';
+  return (dd.padStart(2,'0') + mm.padStart(2,'0') + yy.padStart(4,'0')).replace(/[^0-9]/g,'');
+}
+function countsFromDigits(s){
+  s = (s||'').replace(/[^0-9]/g,'');
+  const counts = {};
+  for(let i=1;i<=9;i++) counts[i]=0;
+  for(const ch of s){
+    const n = parseInt(ch,10);
+    if(n>=1 && n<=9) counts[n] += 1;
+  }
+  return counts;
+}
+function renderGrid(counts){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for(let i=1;i<=9;i++){
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    if(counts[i] === 0) cell.classList.add('highlight');
+    cell.innerHTML = `<div class="num">${counts[i]}</div><div class="digit">${i}</div>`;
+    grid.appendChild(cell);
+  }
+  document.getElementById('explain').textContent = generateExplanationText(counts);
+}
+function generateExplanationText(counts){
+  const strong = [];
+  const missing = [];
+  for(let i=1;i<=9;i++){
+    if(counts[i] >= 2) strong.push(i);
+    if(counts[i] === 0) missing.push(i);
+  }
+  let t = '';
+  if(strong.length) t += 'Выраженные черты: ' + strong.join(', ') + '. ';
+  if(missing.length) t += 'Отсутствуют: ' + missing.join(', ') + '.';
+  return t || 'Нет данных';
+}
+document.getElementById('btnGenerate').addEventListener('click', ()=>{
+  const d = document.getElementById('dateInput').value;
+  if(!d){ alert('Выберите дату'); return; }
+  const digits = digitsFromDate(d);
+  const counts = countsFromDigits(digits);
+  renderGrid(counts);
+});
+document.getElementById('btnToday').addEventListener('click', ()=>{
+  const t = new Date().toISOString().slice(0,10);
+  document.getElementById('dateInput').value = t;
+  document.getElementById('btnGenerate').click();
+});
+
+// Mantras: simple curated set
+const MANTRAS = {
+  success: {
+    title:'Мантры для успеха',
+    lines:[
+      'Я упорно действую — успех следует за мной.',
+      'Каждый день я делаю шаги к своей цели.',
+      'Мои усилия притягивают удачу и возможности.'
+    ]
+  },
+  love: {
+    title:'Мантры для любви',
+    lines:[
+      'Я открыт(а) для искренних чувств и отдаю любовь свободно.',
+      'Я достой(на) любви и создаю пространство для близости.',
+      'Мои отношения наполняют меня радостью и взаимным уважением.'
+    ]
+  },
+  wealth: {
+    title:'Мантры для богатства',
+    lines:[
+      'Достаток приходит ко мне легко и с благодарностью.',
+      'Я творю возможности для финансового роста.',
+      'Мои ресурсы увеличиваются благодаря моему труду и мудрым решениям.'
+    ]
+  }
+};
+document.querySelectorAll('.mantraBtn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const topic = b.getAttribute('data-topic');
+    const m = MANTRAS[topic];
+    const html = `<div style="font-weight:800">${m.title}</div><div style="margin-top:8px">${m.lines.map(l=>`<div style="margin:6px 0">• ${l}</div>`).join('')}</div>
+    <div style="margin-top:8px" class="small">Рекомендация: повторяй мантру 3–9 раз утром или перед важной задачей.</div>`;
+    document.getElementById('mantraResult').innerHTML = html;
+  });
+});
+
+// helper
+function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+// Prefill selects and profile
+(function init(){
+  const pref = localStorage.getItem('preferredZodiac');
+  if(pref) document.getElementById('zodiacSelect').value = pref;
+  const cur = localStorage.getItem('currentUser');
+  if(cur){
+    renderProfile();
+  }
+  const preferred = document.getElementById('zodiacSelect').value;
+  fetchHoroscope(preferred).then(data => {
+    if(data){
+      localStorage.setItem('lastHoroscope_' + preferred, JSON.stringify({time:Date.now(), data}));
+    }
+  });
+})();
+</script>
+</body>
+</html>
